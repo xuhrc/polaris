@@ -13,6 +13,7 @@ import (
 	"time"
 
 	conf "github.com/fairwindsops/polaris/pkg/config"
+	"k8s.io/client-go/tools/clientcmd"
 
 	"github.com/sirupsen/logrus"
 	"github.com/thoas/go-funk"
@@ -214,6 +215,32 @@ func CreateResourceProviderFromPath(directory string) (*ResourceProvider, error)
 // CreateResourceProviderFromCluster creates a new ResourceProvider using live data from a cluster
 func CreateResourceProviderFromCluster(ctx context.Context, c conf.Configuration) (*ResourceProvider, error) {
 	kubeConf, configError := config.GetConfig()
+	if configError != nil {
+		logrus.Errorf("Error fetching KubeConfig: %v", configError)
+		return nil, configError
+	}
+	api, err := kubernetes.NewForConfig(kubeConf)
+	if err != nil {
+		logrus.Errorf("Error creating Kubernetes client: %v", err)
+		return nil, err
+	}
+	dynamicInterface, err := dynamic.NewForConfig(kubeConf)
+	if err != nil {
+		logrus.Errorf("Error connecting to dynamic interface: %v", err)
+		return nil, err
+	}
+	return CreateResourceProviderFromAPI(ctx, api, kubeConf.Host, &dynamicInterface, c)
+}
+
+// CreateResourceProviderFromKubeconfig creates a new ResourceProvider using live data from a cluster kubeconfig
+func CreateResourceProviderFromKubeconfig(ctx context.Context, kubeconfig string, c conf.Configuration) (*ResourceProvider, error) {
+	clientConfig, err := clientcmd.NewClientConfigFromBytes([]byte(kubeconfig))
+	if err != nil {
+		logrus.Error(err.Error())
+		return nil, err
+	}
+
+	kubeConf, configError := clientConfig.ClientConfig()
 	if configError != nil {
 		logrus.Errorf("Error fetching KubeConfig: %v", configError)
 		return nil, configError
