@@ -114,21 +114,27 @@ func ApplyAllSchemaChecksToAllResources(conf *config.Configuration, resourceProv
 		}
 
 		// filter empty result
-		if len(result.Results) > 0 || len(result.PodResult.Results) > 0 {
+		if len(result.Results) > 0 {
 			results = append(results, result)
-		} else {
-			containerResults := result.PodResult.ContainerResults
-			hasContainerResults := false
-			for _, cr := range containerResults {
-				if len(cr.Results) > 0 {
-					hasContainerResults = true
-					break
+		} else if result.PodResult != nil {
+			if len(result.PodResult.Results) > 0 {
+				results = append(results, result)
+			} else {
+				containerResults := result.PodResult.ContainerResults
+				hasContainerResults := false
+
+				for _, cr := range containerResults {
+					if cr.Results != nil && len(cr.Results) > 0 {
+						hasContainerResults = true
+						break
+					}
+				}
+
+				if hasContainerResults {
+					results = append(results, result)
 				}
 			}
 
-			if hasContainerResults {
-				results = append(results, result)
-			}
 		}
 	}
 	return results, nil
